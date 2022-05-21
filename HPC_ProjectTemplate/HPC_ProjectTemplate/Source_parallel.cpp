@@ -93,7 +93,7 @@ int main()
 	//int**images;
 	int ImageWidth = 5, ImageHeight = 5;
 	int indx = 0;
-	int imgscnt=0;
+	int imgscnt;
 
 	//if (rank == 0)
 	//{
