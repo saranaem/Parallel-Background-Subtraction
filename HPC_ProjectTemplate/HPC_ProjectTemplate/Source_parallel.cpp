@@ -2,6 +2,7 @@
 #include <math.h>
 #include <iostream>
 #include<string.h>
+#include <algorithm>
 #include<msclr\marshal_cppstd.h>
 #include <ctime>// include this header 
 #include <mpi.h>
@@ -87,7 +88,7 @@ int main()
 	int size, rank;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	string path = "E://FCIS//6th semster//HPC//Project//BackGround";//path of the images 
+	string path = "E://FCIS//6th semster//HPC//Project//BackGround//in000";//path of the images 
 	vector<string>img_paths;
 	//vector<int*>images;///vector of image streams 
 	int ImageWidth = 5, ImageHeight = 5;
@@ -95,42 +96,39 @@ int main()
 	int imgscnt=495;
 	int**images= new int*[imgscnt];
 	int pixels = ImageWidth * ImageHeight;
+	int imgsperrank = imgscnt / size;
 
+
+	if (rank == 0)
+	{
+		string s = "E://FCIS//6th semster//HPC//Project//BackGround//in000001.jpg";
+		int* imageData = inputImage(&ImageWidth, &ImageHeight, marshal_as<System::String^>(s));
+		pixels = ImageHeight * ImageWidth;
+
+	}
+	MPI_Bcast(&pixels, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	int* imgs = new int[pixels * imgscnt];
 	if (rank == 0)
 	{
 		//rading the images and filling the vector with them 
-		int cnt = 0;
-		for (const auto& entry : fs::directory_iterator(path))
+		for (int i=1;i<=imgscnt;i++)
 		{
-			string temp = entry.path().string();
-			System::String^ imagePath;
-			imagePath = marshal_as<System::String^>(temp);
-
-			int* imageData = inputImage(&ImageWidth, &ImageHeight, imagePath);
-			images[cnt]=imageData;
-
-			cnt++;
-		}
-		pixels = ImageHeight * ImageWidth;
-		imgscnt = cnt;
-	}
-	MPI_Bcast(&imgscnt, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&pixels, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	int* imgs = new int[pixels * imgscnt];
-
-	if (rank == 0)
-	{
-
-		for (int i = 0; i < imgscnt; i++)
-		{
+			string imagePath =to_string(i);
+			string dest = string(3 - imagePath.size(), '0').append(imagePath);
+			imagePath=path+dest+".jpg";
+			int* imageData = inputImage(&ImageWidth, &ImageHeight, marshal_as<System::String^>(imagePath));
+			pixels = ImageWidth * ImageHeight;
 			for (int j = 0; j < pixels; j++)
 			{
-				imgs[i * pixels + j] = images[i][j];
+				imgs[(i-1) * pixels + j] = imageData[j];
 			}
+		
 		}
-	}
 
+	}
 	MPI_Bcast(imgs,imgscnt*pixels, MPI_INT, 0, MPI_COMM_WORLD);
+
+
 
 	int* Background = new int[pixels]();
 	int* Foreground = new int[pixels]();
@@ -180,6 +178,7 @@ int main()
 	{
 		createImage(Foreground, ImageWidth, ImageHeight, 500);
 	}
+
 	MPI_Finalize();
 
 	return 0;
