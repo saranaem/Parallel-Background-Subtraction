@@ -89,15 +89,17 @@ int main()
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	string path = "E://FCIS//6th semster//HPC//Project//BackGround";//path of the images 
 	vector<string>img_paths;
-	vector<int*>images;///vector of image streams 
-	//int**images;
+	//vector<int*>images;///vector of image streams 
 	int ImageWidth = 5, ImageHeight = 5;
 	int indx = 0;
-	int imgscnt;
+	int imgscnt=495;
+	int**images= new int*[imgscnt];
+	int pixels = ImageWidth * ImageHeight;
 
-	//if (rank == 0)
-	//{
+	if (rank == 0)
+	{
 		//rading the images and filling the vector with them 
+		int cnt = 0;
 		for (const auto& entry : fs::directory_iterator(path))
 		{
 			string temp = entry.path().string();
@@ -105,16 +107,30 @@ int main()
 			imagePath = marshal_as<System::String^>(temp);
 
 			int* imageData = inputImage(&ImageWidth, &ImageHeight, imagePath);
-			images.push_back(imageData);
-		}
-		
-		imgscnt = images.size();
-		
-	//}
+			images[cnt]=imageData;
 
-	int pixels = ImageWidth * ImageHeight;
-	//MPI_Bcast(&imgscnt, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	//MPI_Bcast(&images,imgscnt, MPI_INT, 0, MPI_COMM_WORLD);
+			cnt++;
+		}
+		pixels = ImageHeight * ImageWidth;
+		imgscnt = cnt;
+	}
+	MPI_Bcast(&imgscnt, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&pixels, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	int* imgs = new int[pixels * imgscnt];
+
+	if (rank == 0)
+	{
+
+		for (int i = 0; i < imgscnt; i++)
+		{
+			for (int j = 0; j < pixels; j++)
+			{
+				imgs[i * pixels + j] = images[i][j];
+			}
+		}
+	}
+
+	MPI_Bcast(imgs,imgscnt*pixels, MPI_INT, 0, MPI_COMM_WORLD);
 
 	int* Background = new int[pixels]();
 	int* Foreground = new int[pixels]();
@@ -132,8 +148,11 @@ int main()
 	{
 		for (int j = 0; j < imgscnt; j++)
 		{
-			localBg[i] += images[j][start+i];
+			//localBg[i] += images[j][start + i];
+			localBg[i] += imgs[j*pixels+start+i];
+
 		}
+
 		localBg[i] /= imgscnt;
 	}
 	MPI_Gather(localBg, pixels / size, MPI_INT, Background, pixels / size, MPI_INT, 0, MPI_COMM_WORLD);
