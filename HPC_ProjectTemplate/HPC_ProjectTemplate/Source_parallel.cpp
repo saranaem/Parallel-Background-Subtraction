@@ -89,15 +89,11 @@ int main()
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	string path = "E://FCIS//6th semster//HPC//Project//BackGround//in000";//path of the images 
-	vector<string>img_paths;
-	//vector<int*>images;///vector of image streams 
 	int ImageWidth = 5, ImageHeight = 5;
 	int indx = 0;
 	int imgscnt=495;
-	int**images= new int*[imgscnt];
 	int pixels = ImageWidth * ImageHeight;
 	int imgsperrank = imgscnt / size;
-
 
 	if (rank == 0)
 	{
@@ -128,8 +124,6 @@ int main()
 	}
 	MPI_Bcast(imgs,imgscnt*pixels, MPI_INT, 0, MPI_COMM_WORLD);
 
-
-
 	int* Background = new int[pixels]();
 	int* Foreground = new int[pixels]();
 	int* localimg = new int[pixels / size]();
@@ -146,9 +140,7 @@ int main()
 	{
 		for (int j = 0; j < imgscnt; j++)
 		{
-			//localBg[i] += images[j][start + i];
 			localBg[i] += imgs[j*pixels+start+i];
-
 		}
 
 		localBg[i] /= imgscnt;
@@ -184,6 +176,3 @@ int main()
 	return 0;
 
 }
-
-
-
