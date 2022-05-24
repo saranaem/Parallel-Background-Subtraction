@@ -81,7 +81,6 @@ void createImage(int* image, int width, int height, int index)
 	cout << "result Image Saved " << index << endl;
 }
 
-
 int main()
 {
 	MPI_Init(NULL, NULL);
@@ -93,35 +92,35 @@ int main()
 	int indx = 0;
 	int imgscnt=495;
 	int pixels = ImageWidth * ImageHeight;
-	int imgsperrank = imgscnt / size;
-
+	int imgsperrank = ceil((double)imgscnt /(double) size);
+	//to get the pixels
 	if (rank == 0)
 	{
 		string s = "E://FCIS//6th semster//HPC//Project//BackGround//in000001.jpg";
 		int* imageData = inputImage(&ImageWidth, &ImageHeight, marshal_as<System::String^>(s));
 		pixels = ImageHeight * ImageWidth;
-
 	}
 	MPI_Bcast(&pixels, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	int* imgs = new int[pixels * imgscnt];
-	if (rank == 0)
-	{
-		//rading the images and filling the vector with them 
-		for (int i=1;i<=imgscnt;i++)
-		{
-			string imagePath =to_string(i);
-			string dest = string(3 - imagePath.size(), '0').append(imagePath);
-			imagePath=path+dest+".jpg";
-			int* imageData = inputImage(&ImageWidth, &ImageHeight, marshal_as<System::String^>(imagePath));
-			pixels = ImageWidth * ImageHeight;
-			for (int j = 0; j < pixels; j++)
-			{
-				imgs[(i-1) * pixels + j] = imageData[j];
-			}
-		
-		}
+	int* loclimgs= new int[pixels * imgsperrank];
 
+	//rading the images and filling the vector with them 
+	for (int i=1;i<=imgsperrank;i++)
+	{
+		string imagePath =to_string(rank*imgsperrank+i);
+		if (rank * imgsperrank + i == imgscnt+1)
+			break;
+		string dest = string(3 - imagePath.size(), '0').append(imagePath);
+		imagePath=path+dest+".jpg";
+		
+		int* imageData = inputImage(&ImageWidth, &ImageHeight, marshal_as<System::String^>(imagePath));
+		for (int j = 0; j < pixels; j++)
+		{
+			loclimgs[(i-1) * pixels + j] = imageData[j];
+		}
 	}
+	//MPI_Allgather(loclimgs, imgsperrank*pixels, MPI_INT, imgs, imgsperrank*pixels, MPI_INT, MPI_COMM_WORLD);
+	MPI_Gather(loclimgs, imgsperrank * pixels, MPI_INT, imgs, imgsperrank * pixels, MPI_INT, 0,MPI_COMM_WORLD);
 	MPI_Bcast(imgs,imgscnt*pixels, MPI_INT, 0, MPI_COMM_WORLD);
 
 	int* Background = new int[pixels]();
@@ -168,7 +167,7 @@ int main()
 	MPI_Gather(localFg,pixels/size,MPI_INT,Foreground,pixels/size,MPI_INT,0,MPI_COMM_WORLD);
 	if (rank == 0)
 	{
-		createImage(Foreground, ImageWidth, ImageHeight, 500);
+		createImage(Foreground, ImageWidth, ImageHeight, 0);
 	}
 
 	MPI_Finalize();
